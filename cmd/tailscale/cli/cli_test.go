@@ -6,6 +6,7 @@ package cli
 import (
 	"bytes"
 	stdcmp "cmp"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"tailscale.com/envknob"
 	"tailscale.com/health/healthmsg"
+	"tailscale.com/internal/client/tailscale"
 	"tailscale.com/ipn"
 	"tailscale.com/ipn/ipnstate"
 	"tailscale.com/tailcfg"
@@ -1694,6 +1696,63 @@ func TestDocs(t *testing.T) {
 		})
 	}
 	walk(t, root)
+}
+
+func TestUpResolvesParameterStore(t *testing.T) {
+	const testARN = "arn:aws:ssm:us-east-1:123456789012:parameter/my-parameter"
+	undo := tailscale.HookResolveValueFromParameterStore.SetForTest(func(_ context.Context, valueOrARN string) (string, error) {
+		if valueOrARN == testARN {
+			return "resolved-value", nil
+		}
+		return valueOrARN, nil
+	})
+	defer undo()
+
+	ctx := context.Background()
+
+	t.Run("auth_key", func(t *testing.T) {
+		args := upArgsT{authKeyOrFile: testARN}
+		got, err := args.getAuthKey(ctx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "resolved-value" {
+			t.Errorf("got %q, want %q", got, "resolved-value")
+		}
+	})
+
+	t.Run("client_secret", func(t *testing.T) {
+		args := upArgsT{clientSecretOrFile: testARN}
+		got, err := args.getClientSecret(ctx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "resolved-value" {
+			t.Errorf("got %q, want %q", got, "resolved-value")
+		}
+	})
+
+	t.Run("id_token", func(t *testing.T) {
+		args := upArgsT{idTokenOrFile: testARN}
+		got, err := args.getIDToken(ctx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "resolved-value" {
+			t.Errorf("got %q, want %q", got, "resolved-value")
+		}
+	})
+
+	t.Run("passthrough", func(t *testing.T) {
+		args := upArgsT{authKeyOrFile: "tskey-abcd1234"}
+		got, err := args.getAuthKey(ctx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "tskey-abcd1234" {
+			t.Errorf("got %q, want %q", got, "tskey-abcd1234")
+		}
+	})
 }
 
 func TestDeps(t *testing.T) {
