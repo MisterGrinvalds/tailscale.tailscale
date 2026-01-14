@@ -15,7 +15,7 @@ import (
 
 func makeLongBinaryValue() []byte {
 	buf := make([]byte, maxBinaryValueLen*2)
-	for i, _ := range buf {
+	for i := range buf {
 		buf[i] = byte(i % 0xFF)
 	}
 	return buf

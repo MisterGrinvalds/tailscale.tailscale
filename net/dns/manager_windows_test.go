@@ -29,7 +29,7 @@ func TestHostFileNewLines(t *testing.T) {
 	want := []byte("#foo\r\n#bar\r\n#baz\r\n# TailscaleHostsSectionStart\r\n# This section contains MagicDNS entries for Tailscale.\r\n# Do not edit this section manually.\r\n\r\n192.168.1.1 aaron\r\n\r\n# TailscaleHostsSectionEnd\r\n")
 
 	he := []*HostEntry{
-		&HostEntry{
+		{
 			Addr:  netip.MustParseAddr("192.168.1.1"),
 			Hosts: []string{"aaron"},
 		},
@@ -47,7 +47,7 @@ func TestHostFileUnchanged(t *testing.T) {
 	in := []byte("#foo\r\n#bar\r\n#baz\r\n# TailscaleHostsSectionStart\r\n# This section contains MagicDNS entries for Tailscale.\r\n# Do not edit this section manually.\r\n\r\n192.168.1.1 aaron\r\n\r\n# TailscaleHostsSectionEnd\r\n")
 
 	he := []*HostEntry{
-		&HostEntry{
+		{
 			Addr:  netip.MustParseAddr("192.168.1.1"),
 			Hosts: []string{"aaron"},
 		},
@@ -66,11 +66,11 @@ func TestHostFileChanged(t *testing.T) {
 	want := []byte("#foo\r\n#bar\r\n#baz\r\n# TailscaleHostsSectionStart\r\n# This section contains MagicDNS entries for Tailscale.\r\n# Do not edit this section manually.\r\n\r\n192.168.1.1 aaron1\r\n192.168.1.2 aaron2\r\n\r\n# TailscaleHostsSectionEnd\r\n")
 
 	he := []*HostEntry{
-		&HostEntry{
+		{
 			Addr:  netip.MustParseAddr("192.168.1.1"),
 			Hosts: []string{"aaron1"},
 		},
-		&HostEntry{
+		{
 			Addr:  netip.MustParseAddr("192.168.1.2"),
 			Hosts: []string{"aaron2"},
 		},

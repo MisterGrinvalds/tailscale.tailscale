@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"tailscale.com/client/tailscale"
 	"tailscale.com/ipn"
-	kube "tailscale.com/k8s-operator"
 	tsoperator "tailscale.com/k8s-operator"
 	tsapi "tailscale.com/k8s-operator/apis/v1alpha1"
 	"tailscale.com/kube/k8s-proxy/conf"
@@ -864,7 +863,7 @@ func TestProxyGroup(t *testing.T) {
 		tsoperator.SetProxyGroupCondition(pg, tsapi.ProxyGroupReady, metav1.ConditionFalse, reasonProxyGroupCreating, "the ProxyGroup's ProxyClass \"default-pc\" is not yet in a ready state, waiting...", 1, cl, zl.Sugar())
 		expectEqual(t, fc, pg)
 		expectProxyGroupResources(t, fc, pg, false, pc)
-		if kube.ProxyGroupAvailable(pg) {
+		if tsoperator.ProxyGroupAvailable(pg) {
 			t.Fatal("expected ProxyGroup to not be available")
 		}
 	})
@@ -892,7 +891,7 @@ func TestProxyGroup(t *testing.T) {
 		tsoperator.SetProxyGroupCondition(pg, tsapi.ProxyGroupAvailable, metav1.ConditionFalse, reasonProxyGroupCreating, "0/2 ProxyGroup pods running", 0, cl, zl.Sugar())
 		expectEqual(t, fc, pg)
 		expectProxyGroupResources(t, fc, pg, true, pc)
-		if kube.ProxyGroupAvailable(pg) {
+		if tsoperator.ProxyGroupAvailable(pg) {
 			t.Fatal("expected ProxyGroup to not be available")
 		}
 		if expected := 1; reconciler.egressProxyGroups.Len() != expected {
@@ -936,7 +935,7 @@ func TestProxyGroup(t *testing.T) {
 		tsoperator.SetProxyGroupCondition(pg, tsapi.ProxyGroupAvailable, metav1.ConditionTrue, reasonProxyGroupAvailable, "2/2 ProxyGroup pods running", 0, cl, zl.Sugar())
 		expectEqual(t, fc, pg)
 		expectProxyGroupResources(t, fc, pg, true, pc)
-		if !kube.ProxyGroupAvailable(pg) {
+		if !tsoperator.ProxyGroupAvailable(pg) {
 			t.Fatal("expected ProxyGroup to be available")
 		}
 	})

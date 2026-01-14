@@ -88,7 +88,7 @@ type Context interface {
 	Permissions() *Permissions
 
 	// SetValue allows you to easily write new values into the underlying context.
-	SetValue(key, value interface{})
+	SetValue(key, value any)
 }
 
 type sshContext struct {
@@ -119,7 +119,7 @@ func applyConnMetadata(ctx Context, conn gossh.ConnMetadata) {
 	ctx.SetValue(ContextKeyRemoteAddr, conn.RemoteAddr())
 }
 
-func (ctx *sshContext) SetValue(key, value interface{}) {
+func (ctx *sshContext) SetValue(key, value any) {
 	ctx.Context = context.WithValue(ctx.Context, key, value)
 }
 

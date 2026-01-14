@@ -295,7 +295,7 @@ func TestSignals(t *testing.T) {
 	errChan := make(chan error, 5)
 
 	// doneChan lets us specify that we should exit.
-	doneChan := make(chan interface{})
+	doneChan := make(chan any)
 
 	session, _, cleanup := newTestSession(t, &Server{
 		Handler: func(s Session) {
@@ -353,7 +353,7 @@ func TestBreakWithChanRegistered(t *testing.T) {
 	errChan := make(chan error, 5)
 
 	// doneChan lets us specify that we should exit.
-	doneChan := make(chan interface{})
+	doneChan := make(chan any)
 
 	breakChan := make(chan bool)
 
@@ -407,7 +407,7 @@ func TestBreakWithoutChanRegistered(t *testing.T) {
 	errChan := make(chan error, 5)
 
 	// doneChan lets us specify that we should exit.
-	doneChan := make(chan interface{})
+	doneChan := make(chan any)
 
 	waitUntilAfterBreakSent := make(chan bool)
 
