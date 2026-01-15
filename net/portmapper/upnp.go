@@ -110,6 +110,7 @@ func (u *upnpMapping) MappingDebug() string {
 		u.renewAfter.Unix(), u.goodUntil.Unix(),
 		u.loc)
 }
+
 func (u *upnpMapping) Release(ctx context.Context) {
 	u.client.DeletePortMappingCtx(ctx, "", u.external.Port(), upnpProtocolUDP)
 }
@@ -455,9 +456,7 @@ func (c *Client) upnpHTTPClientLocked() *http.Client {
 	return c.uPnPHTTPClient
 }
 
-var (
-	disableUPnpEnv = envknob.RegisterBool("TS_DISABLE_UPNP")
-)
+var disableUPnpEnv = envknob.RegisterBool("TS_DISABLE_UPNP")
 
 // getUPnPPortMapping attempts to create a port-mapping over the UPnP protocol. On success,
 // it will return the externally exposed IP and port. Otherwise, it will return a zeroed IP and

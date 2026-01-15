@@ -31,6 +31,7 @@ import (
 	"tailscale.com/types/nettype"
 	"tailscale.com/util/clientmetric"
 	"tailscale.com/util/eventbus"
+	"tailscale.com/util/execqueue"
 )
 
 var (
@@ -39,6 +40,8 @@ var (
 	ErrGatewayIPv6           = portmappertype.ErrGatewayIPv6
 	ErrPortMappingDisabled   = portmappertype.ErrPortMappingDisabled
 )
+
+const releaseTimeout = 10 * time.Second
 
 var disablePortMapperEnv = envknob.RegisterBool("TS_DISABLE_PORTMAPPER")
 
@@ -151,6 +154,8 @@ type Client struct {
 	localPort uint16
 
 	mapping mapping // non-nil if we have a mapping
+
+	actionQueue execqueue.ExecQueue
 }
 
 var _ portmappertype.Client = (*Client)(nil)
@@ -391,13 +396,22 @@ func (c *Client) listenPacket(ctx context.Context, network, addr string) (nettyp
 	return pc.(*net.UDPConn), nil
 }
 
-func (c *Client) invalidateMappingsLocked(releaseOld bool) {
+func (c *Client) releaseActiveMappingAsync(releaseOld bool) {
 	if c.mapping != nil {
-		if releaseOld {
-			c.mapping.Release(context.Background())
-		}
+		mapping := c.mapping
 		c.mapping = nil
+		if releaseOld {
+			c.actionQueue.Add(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), releaseTimeout)
+				defer cancel()
+				mapping.Release(ctx)
+			})
+		}
 	}
+}
+
+func (c *Client) invalidateMappingsLocked(releaseOld bool) {
+	c.releaseActiveMappingAsync(releaseOld)
 
 	c.pmpPubIP = netip.Addr{}
 	c.pmpPubIPTime = time.Time{}
@@ -499,7 +513,7 @@ func (c *Client) GetCachedMappingOrStartCreatingOne() (external netip.AddrPort, 
 func (c *Client) maybeStartMappingLocked() {
 	if !c.runningCreate {
 		c.runningCreate = true
-		go c.createMapping()
+		c.actionQueue.Add(func() { c.createMapping() })
 	}
 }
 
@@ -630,20 +644,28 @@ func (c *Client) createOrGetMapping(ctx context.Context) (mapping mapping, exter
 		prevPort = m.External().Port()
 	}
 
-	if c.debug.DisablePCP() && c.debug.DisablePMP() {
-		c.mu.Unlock()
-		if external, ok := c.getUPnPPortMapping(ctx, gw, internalAddr, prevPort); ok {
-			return nil, external, nil
-		}
-		c.vlogf("fallback to UPnP due to PCP and PMP being disabled failed")
-		return nil, netip.AddrPort{}, NoMappingError{ErrNoPortMappingServices}
-	}
+	pxpDisabled := c.debug.DisablePCP() && c.debug.DisablePMP()
 
 	// If we just did a Probe (e.g. via netchecker) but didn't
 	// find a PMP service, bail out early rather than probing
 	// again. Cuts down latency for most clients.
 	haveRecentPMP := c.sawPMPRecentlyLocked()
 	haveRecentPCP := c.sawPCPRecentlyLocked()
+	noRecentPxp := c.lastProbe.After(now.Add(-5*time.Second)) &&
+		!haveRecentPMP && !haveRecentPCP
+
+	if pxpDisabled || noRecentPxp {
+		c.mu.Unlock()
+		if external, ok := c.getUPnPPortMapping(ctx, gw, internalAddr, prevPort); ok {
+			return nil, external, nil
+		}
+		if pxpDisabled {
+			c.vlogf("fallback to UPnP due to PCP and PMP being disabled failed")
+		} else { // noRecentPxp
+			c.vlogf("fallback to UPnP due to no PCP and PMP failed")
+		}
+		return nil, netip.AddrPort{}, NoMappingError{ErrNoPortMappingServices}
+	}
 
 	// Since PMP mapping may require multiple calls, and it's not clear from the outset
 	// whether we're doing a PCP or PMP call, initialize the PMP mapping here,
@@ -658,15 +680,6 @@ func (c *Client) createOrGetMapping(ctx context.Context) (mapping mapping, exter
 	}
 	if haveRecentPMP {
 		m.external = netip.AddrPortFrom(c.pmpPubIP, m.external.Port())
-	}
-	if c.lastProbe.After(now.Add(-5*time.Second)) && !haveRecentPMP && !haveRecentPCP {
-		c.mu.Unlock()
-		// fallback to UPnP portmapping
-		if external, ok := c.getUPnPPortMapping(ctx, gw, internalAddr, prevPort); ok {
-			return nil, external, nil
-		}
-		c.vlogf("fallback to UPnP due to no PCP and PMP failed")
-		return nil, netip.AddrPort{}, NoMappingError{ErrNoPortMappingServices}
 	}
 	c.mu.Unlock()
 
