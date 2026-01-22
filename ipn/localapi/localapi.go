@@ -913,7 +913,9 @@ func (h *Handler) serveWatchIPNBus(w http.ResponseWriter, r *http.Request) {
 	h.b.WatchNotificationsAs(ctx, h.Actor, mask, f.Flush, func(roNotify *ipn.Notify) (keepGoing bool) {
 		err := enc.Encode(roNotify)
 		if err != nil {
-			h.logf("json.Encode: %v", err)
+			if !IsClosedPipeError(err) {
+				h.logf("json.Encode: %v", err)
+			}
 			return false
 		}
 		f.Flush()
