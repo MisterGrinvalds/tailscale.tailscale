@@ -7,7 +7,7 @@ package localapi
 
 import (
 	"errors"
-	"io/fs"
+	"io"
 	"runtime"
 	"syscall"
 )
@@ -23,6 +23,5 @@ func IsClosedPipeError(err error) bool {
 		return true
 	}
 
-	// Also covers os.ErrClosed
-	return errors.Is(err, fs.ErrClosed)
+	return errors.Is(err, io.ErrClosedPipe)
 }
