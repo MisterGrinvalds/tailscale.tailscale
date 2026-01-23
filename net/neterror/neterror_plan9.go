@@ -3,9 +3,9 @@
 
 //go:build plan9
 
-package localapi
+package neterror
 
-// IsClosedPipeError reports if err resulted from reading or writing to a closed or broken pipe.
+// Reports whether err resulted from reading or writing to a closed or broken pipe.
 func IsClosedPipeError(err error) bool {
 	return false
 }
